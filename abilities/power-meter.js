@@ -5,8 +5,10 @@ module.exports = homebridge => {
     ConsumptionCharacteristic,
     ElectricCurrentCharacteristic,
     VoltageCharacteristic,
+    TotalConsumptionCharacteristic,
   } = require('../util/custom-characteristics')(homebridge)
   const { PowerMeterService } = require('../util/custom-services')(homebridge)
+  const FakeGatoHistoryService = require('fakegato-history')(homebridge)
 
   class PowerMeterAbility extends Ability {
     /**
@@ -170,5 +172,89 @@ module.exports = homebridge => {
     }
   }
 
-  return PowerMeterAbility
+  class PowerConsumptionAbility extends Ability {
+    /**
+     * @param {string} consumptionProperty - The device property used to
+     * indicate the current power consumption (Watt).
+     */
+    constructor(consumptionProperty) {
+      super()
+
+      this._consumptionProperty = consumptionProperty
+    }
+
+    get service() {
+      return this.platformAccessory.getService(FakeGatoHistoryService)
+    }
+
+    get consumption() {
+      return Math.min(
+        Math.max(this.device[this._consumptionProperty], 0),
+        65535
+      ) / 1000
+    }
+
+    _createService() {
+      const service = new FakeGatoHistoryService(
+        'energy',
+        {
+          displayName: this.platformAccessory.displayName,
+          log: this.log
+        },
+        {
+          storage: 'fs',
+          path: homebridge.user.storagePath() + '/accessories',
+          filename: this.device.id + '_persist.json',
+          minutes: 10
+        })
+      service.setCharacteristic(TotalConsumptionCharacteristic, this.consumption)
+      return service
+    }
+
+    _setupEventHandlers() {
+      super._setupEventHandlers()
+
+      this.device.on(
+        'change:' + this._consumptionProperty,
+        this._consumptionChangeHandler,
+        this
+      )
+    }
+
+    /**
+     * Handles changes from the device to the consumption property.
+     */
+    _consumptionChangeHandler(newValue) {
+      this.log.debug(
+        this._consumptionProperty,
+        'of device',
+        this.device.type,
+        this.device.id,
+        'changed to',
+        newValue
+      )
+
+      this.service
+        .getCharacteristic(TotalConsumptionCharacteristic)
+        .setValue(this.consumption)
+
+      this.service
+        .addEntry({time: Math.round(new Date().valueOf() / 1000), power: this.consumption})
+    }
+
+    detach() {
+      this.device.removeListener(
+        'change:' + this._consumptionProperty,
+        this._consumptionChangeHandler,
+        this
+      )
+
+      super.detach()
+    }
+  }
+
+  return {
+    PowerMeterAbility,
+    PowerConsumptionAbility,
+  }
 }

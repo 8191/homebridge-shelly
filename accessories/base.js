@@ -7,7 +7,10 @@ module.exports = homebridge => {
   const Service = homebridge.hap.Service
   const uuid = homebridge.hap.uuid
 
-  const PowerMeterAbility = require('../abilities/power-meter')(homebridge)
+  const {
+    PowerMeterAbility,
+    PowerConsumptionAbility,
+  } = require('../abilities/power-meter')(homebridge)
 
   /**
    * Base class for all accessories.
@@ -221,6 +224,11 @@ module.exports = homebridge => {
         consumptionProperty,
         electricCurrentProperty,
         voltageProperty
+      ))
+      this.abilities.push(new PowerConsumptionAbility(
+        consumptionProperty,
+        this.platformAccessory,
+        this.log
       ))
     }
 

@@ -11,7 +11,7 @@ module.exports = homebridge => {
   const MotionSensorAbility = require('../abilities/motion-sensor')(homebridge)
   const OccupancySensorAbility =
     require('../abilities/occupancy-sensor')(homebridge)
-  const PowerMeterAbility =
+  const { PowerMeterAbility } =
     require('../abilities/power-meter')(homebridge)
   const SmokeSensorAbility = require('../abilities/smoke-sensor')(homebridge)
   const TemperatureSensorAbility =
