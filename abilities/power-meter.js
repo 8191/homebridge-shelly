@@ -184,30 +184,58 @@ module.exports = homebridge => {
     }
 
     get service() {
-      return this.platformAccessory.getService(FakeGatoHistoryService)
+      return this._service
+    }
+
+    /**
+     * Adds this ability to the given accessory.
+     * @param {object} accessory - The accessory to add this ability to.
+     */
+    setup(accessory) {
+      this.device = accessory.device
+      this.accessory = accessory
+      this.log = accessory.log
+      this.platformAccessory = accessory.platformAccessory
+
+      if (!(this._service instanceof FakeGatoHistoryService)) {
+        this.log.info("Creating new FakeGatoHistoryService service.")
+
+        for (const s of this.platformAccessory.services) {
+          if (s.UUID == FakeGatoHistoryService.UUID) {
+            this.platformAccessory.removeService(s)
+          }
+        }
+
+        // Create service and add to platformAccessory
+        // (done in FakeGatoHistoryService constructor)
+        this._service = this._createService()
+      }
+      else {
+        this.log.debug("FakeGatoHistoryService exists.")
+      }
+
+      this._setupEventHandlers()
     }
 
     get consumption() {
       return Math.min(
         Math.max(this.device[this._consumptionProperty], 0),
         65535
-      ) / 1000
+      )
     }
 
     _createService() {
       const service = new FakeGatoHistoryService(
         'energy',
+        this.platformAccessory,
         {
-          displayName: this.platformAccessory.displayName,
-          log: this.log
-        },
-        {
+          log: this.log,
           storage: 'fs',
           path: homebridge.user.storagePath() + '/accessories',
           filename: this.device.id + '_persist.json',
           minutes: 10
         })
-      service.setCharacteristic(TotalConsumptionCharacteristic, this.consumption)
+      service.service.setCharacteristic(TotalConsumptionCharacteristic, this.consumption)
       return service
     }
 
